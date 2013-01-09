@@ -86,7 +86,7 @@ Beer.find_all_by_abv(7.0) </code>
           </section>
 
           <section>
-            <h3>Conditions</h3>
+            <h3>Conditions Hash</h3>
             <pre>
               <code class="ruby"> Beer.find(:all, conditions: ["abv &lt; ?", 7]) </code>
             </pre>
@@ -98,7 +98,7 @@ Beer.find_all_by_abv(7.0) </code>
             <pre>
               <code class="ruby">Beer.where("abv between ? and ?", 5.5, 7)
 
-      <span class="fragment fade-in">Beer.where(abv: 5.5..7)</span></code>
+<span class="fragment fade-in">Beer.where(abv: 5.5..7)</span></code>
             </pre>
             <aside class="notes">I found thought that I usually used the where syntax that rails 3 offered but quote often with
             a string syntax because I didn't quite not how to fully utilize the hash syntax
@@ -181,7 +181,7 @@ find(:all, :joins => joins, :conditions => conditions, :order => order, :limit =
           <section>
           	<h3>and even this...</h3>
           	<pre>
-              <code class="ruby" style="font-size: 14px; line-height: 1.5em;">stmt = "SELECT DISTINCT
+              <code class="ruby" style="font-size: 11px; line-height: 1.5em;">stmt = "SELECT DISTINCT
   GROUP_CONCAT(DISTINCT UCASE(CAST(LEFT(AES_DECRYPT(p.last_name, 'xxx'), 1) AS CHAR))) AS letters
 FROM channel_groups cg
 INNER JOIN channel_group_people cgp ON cgp.channel_group_id = cg.id
@@ -226,121 +226,6 @@ elsif (first_attr_id)
             </aside>
           </section>
 
-        </section>
-
-        <section>
-        	<section>
-        		<h2>Limit Query Interface usage to AR Models</h2>
-        		<pre>
-              <code class="ruby">class Beer &lt; ActiveRecord::Base
-  class &lt;&lt; self
-
-    def by_name(name)
-      where(name: name)
-    end
-
-    def by_abv(abv)
-      where(abv: abv)
-    end
-
-    def by_brewery_name(name)
-      joins(:brewery).merge(Brewery.by_name(name))
-    end
-
-  end
-end
-              </code>
-        		</pre>
-            <aside class="notes">
-            Try to keep as much of your query logic inside your AR objects and only provide a meaningful interface
-            to access the scopes.
-
-            This will allow you to ensure logic stays dry and AR will properly prefix your column names with the approriate
-            table.
-
-            This will also help promote reuse and provide a nice name for the condition of sql you are writing.
-            </aside>
-        	</section>
-
-          <section>
-          	<pre>
-              <code class="ruby">Beer.by_abv(5.5..7).by_brewery_name("Founders Brewing Co.")
-              
-# SELECT "beers".* 
-# FROM "beers" INNER JOIN "breweries" 
-#   ON "breweries"."id" = "beers"."brewery_id" 
-# WHERE "breweries"."name" = 'Founders Brewing Co.' 
-#   AND ("beers"."abv" BETWEEN 5.5 AND 7)
-              </code>
-          	</pre>
-          </section>
-        </section>
-
-        <!-- start use merge -->
-        <section>
-        	<section>
-          <h2>Use "#merge" Religiously</h2>
-          <aside class="notes">Merge may be the single most powerful method in active record
-          as it allows you to merge relationships from other models. This is the piece of the puzzle 
-          that will let you not duplicate your logic and keep things dry and neat and tidy.
-          </aside>
-        	</section>
-
-          <section>
-            <p>Prevents hard coding table names</p>
-            <pre>
-              <code class="ruby">Beer.joins(:brewery).where(brewery: { name: "Bell's" })
-
-<span class="fragment fade-in">Beer.joins(:brewery).merge(Brewery.where(name: "Bell's"))</span>
-              </code>
-            </pre>
-          </section>
-
-          <section>
-            <p>Allows you to keep query logic in applicable model</p>
-            <pre>
-              <code class="ruby">class Brewery &lt; ActiveRecord::Base
-  def self.by_name(name)
-    where(name: name)
-  end
-end 
-
-Beer.joins(:brewery).merge(Brewery.by_name("Bell's"))</code>
-            </pre>
-          </section>
-
-          <section>
-            <h2>Makes you complex sql not complex</h2>
-          </section>
-
-          <section>
-            <p>...remember this?</p>
-            <pre>
-              <code class="ruby" style="font-size: 14px; line-height: 1.5em;">stmt = "SELECT DISTINCT
-  GROUP_CONCAT(DISTINCT UCASE(CAST(LEFT(AES_DECRYPT(p.last_name, 'xxx'), 1) AS CHAR))) AS letters
-FROM channel_groups cg
-INNER JOIN channel_group_people cgp ON cgp.channel_group_id = cg.id
-INNER JOIN people p ON p.id = cgp.person_id
-INNER JOIN channel_membership_attribute_person_values cmapv1 ON p.id = cmapv1.person_id
-INNER JOIN channel_membership_attribute_values cmav1 ON cmav1.id = cmapv1.channel_membership_attribute_value_id
-INNER JOIN channel_membership_attributes cma1 ON cma1.id = cmav1.channel_membership_attribute_id AND cma1.channel_id = cg.channel_id
-INNER JOIN channel_membership_attribute_person_values cmapv2 ON p.id = cmapv2.person_id
-INNER JOIN channel_membership_attribute_values cmav2 ON cmav2.id = cmapv2.channel_membership_attribute_value_id
-INNER JOIN channel_membership_attributes cma2 ON cma2.id = cmav2.channel_membership_attribute_id AND cma2.channel_id = cg.channel_id
-#{if self.show_unregistered_people_in_directory? then
-' left join accounts a on a.person_id = p.id'
-else
-' inner join accounts a on a.person_id = p.id'
-end}
-WHERE cg.id = #{group_id}"
-clause = if (first_attr_id &amp;&amp; second_attr_id)
-  " AND cmav1.id = #{first_attr_id} AND cmav2.id = #{second_attr_id} GROUP BY cmav1.id, cmav2.id"
-elsif (first_attr_id)
-...
-              </code>
-            </pre>
-          </section>
-
           <section>
           	<p>That query was used to create an address book style initial list.</p>
               <p>[A, G, H, K, S, X]</p>
@@ -349,10 +234,9 @@ elsif (first_attr_id)
           <section>
           	<p>...it's now this</p>
           	<pre>
-              <code class="ruby">people = Person.in_channel_group(group_id) \
-  .order(Person.column_last_initial)
+              <code class="ruby">people = Person.in_channel_group(group_id)
 
-if self.show_unregistered_people_in_directory?
+if !show_unregistered_people_in_directory?
   people = people.registered
 end
 
@@ -361,7 +245,9 @@ if !attribute_ids.empty?
   people = people.with_channel_attribute_ids(attribute_ids)
 end
 
-people.uniq \
+people \
+  .order(Person.column_last_initial)
+  .uniq \
   .pluck(Person.column_last_initial('last_initial').to_sql)</code>
           	</pre>
           </section>
@@ -447,62 +333,62 @@ ORDER BY UCASE(LEFT(AES_DECRYPT(`people`.`last_name`, x'xxx'), 1))</code>
           	</pre>
           </section>
 
+
         </section>
-        <!-- end use merge -->
 
-        <!-- start don't duplicate logic -->
+        <!-- start use merge -->
         <section>
-
-          <section>
-            <h2>Don't Duplicate Logic/Conditions</h2>
-          	<pre>
-              <code class="ruby">Post.includes(:user).where(users: { is_active: true })
-
-<span class="fragment fade-in">Post.includes(:user).where(users: { is_active: true }) \
-  .where("user.email IS NOT NULL")</span> 
-
-<span class="fragment fade-in">Post.includes(:user).where(users: { is_active: true }) \
-  .where("users.email IS NOT NULL") \
-  .where(users: { banned: false })</span> 
-
-<span class="fragment fade-in">Post.includes(:user).merge(User.active)</span>
-              </code>
-          	</pre>
-          </section>
-
         	<section>
-        		<h2>Don't Duplicate Logic</h2>
-        		<pre>
-              <code class="ruby">class Beer &lt; ActiveRecord::Base
-  def self.with_no_brewery
-    where(brewery_id: nil)
-  end
-end
-
-class Brewery &lt; ActiveRecord::Base
-  def self.with_no_beers
-    includes(:beers).merge(Beer.with_no_brewery)
-  end
-end
-
-              </code>
-        		</pre>
+          <h2>Use "#merge" Religiously</h2>
+          <aside class="notes">Merge may be the single most powerful method in active record
+          as it allows you to merge relationships from other models. This is the piece of the puzzle 
+          that will let you not duplicate your logic and keep things dry and neat and tidy.
+          </aside>
         	</section>
 
           <section>
-          	<pre>
-              <code class="ruby">Brewery.with_no_beers
+            <p>Prevents hard coding table names</p>
+            <pre>
+              <code class="ruby">Beer.joins(:brewery).where(brewery: { name: "Bell's" })
+<span class="fragment fade-in"># SELECT "beers".* 
+# FROM "beers" INNER JOIN "breweries" 
+#   ON "breweries"."id" = "beers"."brewery_id" 
+# WHERE <span class="fragment highlight-red">"brewery"."name"</span> = 'Bell''s'</span>
 
-# SELECT "breweries"."id" AS t0_r0, ...
-# FROM "breweries" LEFT OUTER JOIN "beers" 
-#  ON "beers"."brewery_id" = "breweries"."id" 
-# WHERE "beers"."brewery_id" IS NULL
-            </code>
-          	</pre>
+<span class="fragment fade-in">Beer.joins(:brewery).merge(Brewery.where(name: "Bell's"))</span>
+<span class="fragment fade-in"># SELECT "beers".* 
+# FROM "beers" INNER JOIN "breweries" 
+#   ON "breweries"."id" = "beers"."brewery_id" 
+# WHERE "breweries"."name" = 'Bell''s'</span></code>
+            </pre>
+          </section>
+
+          <section>
+            <p>Allows you to keep query logic in applicable model</p>
+            <pre>
+              <code class="ruby">class Brewery &lt; ActiveRecord::Base
+  has_many :beers
+
+  def self.by_name(name)
+    where(name: name)
+  end
+end 
+
+<span class="fragment fade-in">Beer.joins(:brewery).merge(Brewery.by_name("Bell's"))</span>
+
+<span class="fragment fade-in">class Beer &lt; ActiveRecord::Base
+  belongs_to :brewery
+
+  def self.by_brewery_name(name)
+    joins(:brewery).merge(Brewery.by_name(name))
+  end
+end</span></code>
+            </pre>
           </section>
 
         </section>
-        <!-- end don't duplicate logic -->
+        <!-- end use merge -->
+
 
         <!--  relationships -->
         <section>
@@ -566,8 +452,129 @@ end</code>
         </section>
         <!-- end relationships -->
 
-        <!-- when things get complex -->
+        <!-- start limit query interface -->
+        <section>
+        	<section>
+        		<h2>Limit Query Interface usage to AR Models</h2>
+          </section>
 
+          <section>
+        		<pre>
+              <code class="ruby">class Beer &lt; ActiveRecord::Base
+  class &lt;&lt; self
+
+    def by_name(name)
+      where(name: name)
+    end
+
+    def by_abv(abv)
+      where(abv: abv)
+    end
+
+    def by_brewery_name(name)
+      joins(:brewery).merge(Brewery.by_name(name))
+    end
+
+  end
+end </code>
+        		</pre>
+            <aside class="notes">
+            Try to keep as much of your query logic inside your AR objects and only provide a meaningful interface
+            to access the scopes.
+
+            This will allow you to ensure logic stays dry and AR will properly prefix your column names with the approriate
+            table.
+
+            This will also help promote reuse and provide a nice name for the condition of sql you are writing.
+            </aside>
+        	</section>
+
+          <section>
+          	<pre>
+              <code class="ruby">Beer.by_abv(5.5..7).by_brewery_name("Founders Brewing Co.")
+              
+# SELECT "beers".* 
+# FROM "beers" INNER JOIN "breweries" 
+#   ON "breweries"."id" = "beers"."brewery_id" 
+# WHERE "breweries"."name" = 'Founders Brewing Co.' 
+#   AND ("beers"."abv" BETWEEN 5.5 AND 7)
+              </code>
+          	</pre>
+          </section>
+        </section>
+        <!-- end limit query interface -->
+
+
+        <!-- start don't duplicate logic -->
+        <section>
+
+          <section>
+            <h2>Don't Duplicate Logic/Conditions</h2>
+          </section>
+
+          <section>
+            <p>Limiting to Active Users</p>
+          	<pre>
+              <code class="ruby">Post.includes(:user).where(users: { is_active: true })
+
+<span class="fragment fade-in">Post.includes(:user).where(users: { is_active: true }) \
+  .where("user.email IS NOT NULL")</span> 
+
+<span class="fragment fade-in">Post.includes(:user).where(users: { is_active: true }) \
+  .where("users.email IS NOT NULL") \
+  .where(users: { banned: false })</span> 
+
+<span class="fragment fade-in">Post.includes(:user).merge(User.active)</span> </code>
+          	</pre>
+          </section>
+
+          <section>
+            <p>Limiting to Active Users</p>
+          	<pre>
+              <code class="ruby"> class User &lt; ActiveRecord::Base
+  has_many :posts
+  has_many :documents
+
+  def self.active
+    where(is_active: true).with_email.not_banned
+  end
+
+  <span class="fragment fade-in">def self.with_email
+    where(User.arel_table[:email].not_eq(nil))
+  end </span>
+
+  <span class="fragment fade-in">def self.not_banned
+    where(banned: false)
+  end </span>
+end</code>
+          	</pre>
+          </section>
+
+          <section>
+            <p>Limiting to Active Users</p>
+          	<pre>
+              <code class="ruby">class Post &lt; ActiveRecord::Base
+  belongs_to :user
+
+  def self.by_active_users
+    joins(:user).merge(User.active)
+  end
+end
+
+class Document &lt; ActiveRecord::Base
+  belongs_to :user
+
+  def self.by_active_users
+    joins(:user).merge(User.active)
+  end
+end</code>
+          	</pre>
+          </section>
+
+        </section>
+        <!-- end don't duplicate logic -->
+
+        <!-- when things get complex -->
         <section>
 
           <section>
@@ -578,39 +585,61 @@ end</code>
           <section>
             <h2>What is Arel</h2>
             <ul>
-              <li>Arel is a SQL AST manager for Ruby</li>
-              <li>Simplifies the generation of complex SQL queries</li>
-              <li>Adapts to various RDBMS systems</li>
+              <li>Arel is a SQL AST manager for Ruby*</li>
+              <li>Simplifies the generation of complex SQL queries*</li>
+              <li>Adapts to various RDBMS systems*</li>
+              <li>Building block to queries inside ActiveRecord</li>
             </ul>
             <p><small>* <a href="https://github.com/rails/arel">https://github.com/rails/arel</a></small></p>
             <aside class="notes">
             ARel was created by Nick Kallen of twitter and is the basic building blocks underneath the ActiveRecord::Relation query interface
 
             http://erniemiller.org/2010/05/11/activerecord-relation-vs-arel/
-            
-            1.9.3p194 :011 > (s.methods - Object.instance_methods).sort
-             => [:as, :ast, :compile_delete, :compile_insert, :compile_update, :constraints, :create_and, :create_false, :create_insert, :create_join, :create_on, :create_string_join, :create_table_alias, :create_true, :delete, :distinct, :engine, :except, :exists, :from, :froms, :group, :grouping, :having, :insert, :intersect, :join, :join_sources, :join_sql, :joins, :limit, :limit=, :lock, :locked, :lower, :minus, :offset, :offset=, :on, :order, :order_clauses, :orders, :project, :projections=, :skip, :source, :take, :taken, :to_a, :to_dot, :to_sql, :union, :update, :visitor, :where, :where_clauses, :where_sql, :wheres, :with] 
             </aside>
           </section>
 
         </section>
         <!-- end things get complex -->
 
+        <!-- arel conditions -->
+        <section>
+          <section>
+          	<h2>Arel Conditions</h2>
+          </section>
+
+        	<section>
+            <ul>
+            	<li>eq - (a = 1)</li>
+            	<li>in - (a in [1, 2])</li>
+            	<li>matches - (a like "%one%")</li>
+            	<li>lt - (a &lt; 1)</li>
+              <li>gt - (a &gt; 1)</li>
+              <li>gteq - (a &gt;= 1)</li>
+              <li>lteq - (a &lt;= 1)</li>
+            </ul>
+        	</section>
+
+        	<section>
+            <ul>
+            	<li>condition_all - eq_all - (a = 1 and a = 2)</li>
+            	<li>condition_any - eq_any - (a = 1 or a = 2)</li>
+            	<li>not_condition - not_eq - (a != 1)</li>
+            	<li>not_condition_any - not_eq_any - (a != 1 or a != 2)</li>
+            	<li>not_condition_all - not_eq_all - (a != 1 and a != 2)</li>
+            </ul>
+        	</section>
+
+        </section>
+        <!-- end arel conditions -->
+
+        <!-- access arel from models -->
         <section>
         	<section>
         		<h2>Accessing Arel From Models</h2>
         	</section>
 
-          <section>
-          	<p>Arel::Table</p>
-          	<pre>
-              <code class="ruby"><span class="fragment fade-in">Model.arel_table</span>
-<span class="fragment fade-in">Model.scoped.table</span> </code>
-          	</pre>
-          </section>
-
         	<section>
-        		<p>Accessing Arel::Table from model</p>
+        		<p>Arel::Table</p>
         		<pre>
               <code class="ruby">&gt; Beer.arel_table.class
  =&gt; Arel::Table
@@ -627,42 +656,20 @@ end</code>
           <section>
           	<p>Arel::SelectManager</p>
           	<pre>
-              <code class="ruby"><span class="fragment fade-in">Model.arel_table.select_manager</span>
-<span class="fragment fade-in">Model.scoped.arel</span></code>
+              <code class="ruby">Beer.scoped.arel.class
+ =&gt; Arel::SelectManager
+
+<span class="fragment fade-in">query = Beer.where(abv: 5..6)
+query.arel.where(Beer.arel_table[:name].matches("%ale%"))
+
+query.all
+# SELECT "beers".* FROM "beers" 
+# WHERE "beers"."abv" between 5 and 6
+#   AND "beers"."name" LIKE '%ale%'</span> </code>
           	</pre>
           </section>
         </section>
-
-        <section>
-          <section>
-          	<h2>Using Arel for conditions</h2>
-          </section>
-
-        	<section>
-        		<p>Conditions</p>
-            <ul>
-            	<li>eq - (a = 1)</li>
-            	<li>in - (a in [1, 2])</li>
-            	<li>matches - (a like "%one%")</li>
-            	<li>lt - (a &lt; 1)</li>
-              <li>gt - (a &gt; 1)</li>
-              <li>gteq - (a &gt;= 1)</li>
-              <li>lteq - (a &lt;= 1)</li>
-            </ul>
-        	</section>
-
-        	<section>
-        		<p>Conditions</p>
-            <ul>
-            	<li>condition_all - eq_all - (a = 1 and a = 2)</li>
-            	<li>condition_any - eq_any - (a = 1 or a = 2)</li>
-            	<li>not_condition - not_eq - (a != 1)</li>
-            	<li>not_condition_any - not_eq_any - (a != 1 or a != 2)</li>
-            	<li>not_condition_all - not_eq_all - (a != 1 and a != 2)</li>
-            </ul>
-        	</section>
-
-        </section>
+        <!-- end access arel from models -->
 
         <section>
         	<section>
@@ -732,23 +739,35 @@ end
 
         </section>
 
+        <!-- Multiple Joins -->
         <section>
           <section>
           	<h2>Complex Joins with Arel</h2>
           </section>
+
         	<section>
-        		<p>Creating join with Arel</p>
+        		<p>Inner Join</p>
         		<pre>
         			<code class="ruby">beer = Beer.arel_table
 style = Style.arel_table
 
 join_condition = beer.create_on(beer[:style_id].eq(style[:id]))
 inner_join = beer.create_join(style, join_condition)
-outer_join = beer.create_join(style, join_condition, Arel::Nodes::OuterJoin)
 
 Beer.joins(inner_join)
 # SELECT "beers".* FROM "beers" 
-# INNER JOIN "styles" ON "beers"."style_id" = "styles"."id"
+# INNER JOIN "styles" ON "beers"."style_id" = "styles"."id"</code>
+        		</pre>
+        	</section>
+
+        	<section>
+        		<p>Outer Join</p>
+        		<pre>
+        			<code class="ruby">beer = Beer.arel_table
+style = Style.arel_table
+
+join_condition = beer.create_on(beer[:style_id].eq(style[:id]))
+outer_join = beer.create_join(style, join_condition, Arel::Nodes::OuterJoin)
 
 Beer.joins(outer_join)
 # SELECT "beers".* FROM "beers" 
@@ -757,8 +776,74 @@ Beer.joins(outer_join)
         		</pre>
         	</section>
 
+          <section>
+          	<p>Multiple Joins</p>
+          	<pre>
+        			<code class="ruby">beer = Beer.arel_table
+beer_drinker = BeerDrinker.arel_table
+beer_beer_drinker = Arel::Table.new(:beer_drinkers_beers)
+
+condition = beer.create_on \
+  beer[:id].eq(beer_beer_drinker[:beer_id])
+
+first_join = beer.create_join(beer_beer_drinker, condition)
+
+
+condition = beer_drinker.create_on \
+  beer_beer_drinker[:beer_drinker_id].eq(beer_drinker[:id])
+
+second_join = first_join.create_join(beer_drinker, condition)</code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>Multiple Joins</p>
+          	<pre>
+        			<code class="ruby">Beer.joins(first_join, second_join)
+
+# SELECT "beers".* 
+# FROM "beers" INNER JOIN "beer_drinkers_beers" 
+#   ON "beers"."id" = "beer_drinkers_beers"."beer_id" 
+# INNER JOIN "beer_drinkers" 
+#    ON "beer_drinkers_beers"."beer_drinker_id" = 
+#       "beer_drinkers"."id" </code>
+          	</pre>
+          </section>
+
+        </section>
+        <!-- End Multiple Joins -->
+
+        <!-- arel for order by -->
+        <section>
+        	<section>
+        		<h2>User arel for Order by</h2>
+        	</section>
+
+          <section>
+          	<p>Just using normal AR style</p>
+          	<pre>
+              <code class="ruby">Beer.order(:name)
+# SELECT "beers".* FROM "beers" ORDER BY name
+
+<span class="fragment fade-in">Beer.joins(:style).order(:name)
+# SELECT "beers".* FROM "beers" 
+# INNER JOIN "styles" ON "styles"."id" = "beers"."style_id" 
+# ORDER BY name</span>
+
+<span class="fragment fade-in">beer = Beer.arel_table
+Beer.order(beer[:name])
+# SELECT "beers".* FROM "beers" ORDER BY "beers"."name"
+</span>
+
+<span class="fragment fade-in">Beer.order(beer[:name].desc)
+# SELECT "beers".* FROM "beers" ORDER BY "beers"."name" DESC
+</span> </code>
+          	</pre>
+          </section>
+
         </section>
 
+        <!-- Named function -->
         <section>
         	<section>
         		<h2>Named Functions</h2>
@@ -816,6 +901,7 @@ ucase.to_sql
           </section>
         </section>
 
+        <!-- Unions -->
         <section>
         	<section>
         		<h2>Unions</h2>
@@ -829,7 +915,7 @@ ucase.to_sql
 union = Beer.where(name: "Oberon") \
   .union(Beer.where(name: "Two Hearted")) 
 
-Beer.from(beer.create_table_alias(union, :beers)).all
+<span class="fragment fade-in">Beer.from(beer.create_table_alias(union, :beers)).all
 
 # SELECT "beers".* 
 # FROM ( SELECT "beers".* 
@@ -838,40 +924,11 @@ Beer.from(beer.create_table_alias(union, :beers)).all
 # UNION 
 # SELECT "beers".* 
 #   FROM "beers" 
-# WHERE "beers"."name" = 'Two Hearted' ) "beers"
-              </code>
+# WHERE "beers"."name" = 'Two Hearted' ) "beers"</span> </code>
           	</pre>
           </section>
         </section>
 
-        <section>
-        	<section>
-        		<h2>User arel for Order by</h2>
-        	</section>
-
-          <section>
-          	<p>Just using normal AR style</p>
-          	<pre>
-              <code class="ruby">Beer.order(:name)
-# SELECT "beers".* FROM "beers" ORDER BY name
-
-<span class="fragment fade-in">Beer.joins(:style).order(:name)
-# SELECT "beers".* FROM "beers" 
-# INNER JOIN "styles" ON "styles"."id" = "beers"."style_id" 
-# ORDER BY name</span>
-
-<span class="fragment fade-in">beer = Beer.arel_table
-Beer.order(beer[:name])
-# SELECT "beers".* FROM "beers" ORDER BY "beers"."name"
-</span>
-
-<span class="fragment fade-in">Beer.order(beer[:name].desc)
-# SELECT "beers".* FROM "beers" ORDER BY "beers"."name" DESC
-</span> </code>
-          	</pre>
-          </section>
-
-        </section>
 
         <section>
         	<section>
