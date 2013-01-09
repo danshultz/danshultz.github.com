@@ -1,0 +1,40 @@
+Introduction
+
+My Story
+  I started using rails finders
+  sql substituion syntax
+  I discovered hash conditionals
+  Joined a code base with tons of raw sql
+  repetative raw sql
+  There has to be a better way
+
+Why use arel and hash syntax exclusivly
+
+What does active record give us
+What does arel give us
+
+What's new in Rails 4
+
+
+------------
+
+Using models as Query Objects
+ - don't let where, joins, etc escape
+Don't duplicate logic
+ - merge
+Scopes and chaining scopes
+Handling complex joins
+Better way to order by
+like
+not like
+grouping conditionals
+unions
+Extending relationships
+Agregate functions
+Special Functions
+
+Access Arel directly
+
+
+
+

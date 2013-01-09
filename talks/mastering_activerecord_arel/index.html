@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>Master ActiveRecord and Arel</title>
+
+		<meta name="author" content="Dan Shultz">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<link rel="stylesheet" href="css/reveal.min.css">
+		<link rel="stylesheet" href="css/theme/default.css" id="theme">
+
+		<!-- For syntax highlighting -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- If the query includes 'print-pdf', use the PDF print sheet -->
+		<script>
+			document.write( '<link rel="stylesheet" href="css/print/' + ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">' );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+			<div class="slides">
+        <section>
+        <img src="images/social-media-bacon.jpg" alt="eating bacon" />
+        </section>
+
+				<section>
+          <h1>Master ActiveRecord and ARel</h1>
+				</section>
+
+        <section>
+        	<h3>Dan Shultz</h3>
+          <p>@danshultz &bull; das0118@gmail.com</p>
+          <aside class="notes">Hello, my name is Dan Shultz and I have been using rails for a little over three years now although
+          most of my time now is spent working in python and django. I'm currently an independent contractor and consultant so
+          if you need ruby/python work done let me know. I also spend quite a bit of my time working in Javascript both server
+          and client side.
+
+          I wanted to give this talk because I think most people just scrape the surface of what rails activerecord offers when
+          it comes to querying your data. I think ActiveRecord along with Arel is one of the most robust tool sets to help you
+          easily query your data and pull back objects.
+
+          Hello My name is Dan Shultz and I have been using rails for a little over three years now.
+
+          I started using rails just before rails 3 was released. 
+          </aside>
+        </section>
+
+        <section>
+
+          <section>
+          	<h2>When I started using rails...</h2>
+            <aside class="notes">When I started using rails I had come in just near the end of the rails 2.7 days and 
+            had only started using rails for personal stuff as I was still working primarily in .NET at the time. 
+
+            Since rails 3 was just on the verge of release, I also played around with that also.
+
+            To get at my data I would use the classic finders
+            </aside>
+          </section>
+
+          <section>
+            <h3>Finders</h3>
+            <pre>
+              <code class="ruby">Beer.find_by_name_and_abv("Two Hearted Ale", 7.0)
+
+Beer.find_all_by_abv(7.0) </code>
+            </pre>
+            <aside class="notes">I used the classic find_by finders to pull back single records
+            
+            I would use the find_all_by finders to pull back all my data
+            </aside>
+          </section>
+
+          <section>
+            <h3>Conditions</h3>
+            <pre>
+              <code class="ruby"> Beer.find(:all, conditions: ["abv &lt; ?", 7]) </code>
+            </pre>
+            <aside class="notes">I also used the find with the hash syntax to pull back records</aside>
+          </section>
+
+          <section>
+            <h3>String Conditions</h3>
+            <pre>
+              <code class="ruby">Beer.where("abv between ? and ?", 5.5, 7)
+
+      <span class="fragment fade-in">Beer.where(abv: 5.5..7)</span></code>
+            </pre>
+            <aside class="notes">I found thought that I usually used the where syntax that rails 3 offered but quote often with
+            a string syntax because I didn't quite not how to fully utilize the hash syntax
+
+            I've written quite a bit of sql so I was comfortable using the string equivlent because it made things easier I felt.
+
+            Then I realized that rails actually would handle things like between for me.
+            </aside>
+          </section>
+
+        </section>
+
+        <section>
+        	<section>
+        		<h2>Then I joined a large team...</h2>
+            <aside class="notes">
+            Then about a year and a half ago, I joined a large development team working on a rails application that had been around
+            since the 2.7 days but recently had upgraded to rails 3 just as I was coming in.
+
+            In order to pull models and data back from active record, we often did...
+            </aside>
+        	</section>
+
+          <section>
+          	<h3>We did this...</h3>
+          	<pre>
+              <code class="ruby">
+    record = self.handles.first(
+      :conditions =&gt; {
+      :value_type =&gt; value.class.name,
+      :value_id =&gt; value.id
+    })
+              </code>
+          	</pre>
+          </section>
+
+          <section>
+          	<h3>and this...</h3>
+          	<pre>
+              <code class="ruby">
+    Discussion.find(id).comments.joins(:conversation) \
+      .where("conversations.person_id" =&gt; person_id)
+              </code>
+          	</pre>
+          </section>
+
+          <section>
+          	<h3>and sometimes in our controllers...</h3>
+          	<pre>
+              <code class="ruby">
+    Discussion.where("owner" =&gt; person_id, :deleted =&gt; false, 
+      "created_on &gt; ?" =&gt; 2.weeks.ago)
+              </code>
+          	</pre>
+          </section>
+
+          <section>
+          	<h3>Also this...</h3>
+          	<pre>
+              <code class="ruby">
+joins = "INNER JOIN channel_groups cg ON cg.id = discussions.channel_group_id"
+joins = "#{joins} INNER JOIN channel_group_people cgp ON cgp.channel_group_id = cg.id" unless as_admin
+
+conditions = "cg.channel_id = #{channel.id} AND discussions.widget_id = #{for_widget_id ? for_widget_id : 'NULL'}"
+conditions = "#{conditions} AND cgp.person_id = #{person.id}" unless as_admin
+
+order = "discussions.updated_at DESC"
+
+find(:all, :joins => joins, :conditions => conditions, :order => order, :limit => limit)
+              </code>
+          	</pre>
+            <aside class="notes">
+            We also did things like this where we wrote crazy sql and string joins and interpoate parts like crazy
+            then do a find all with crazy string conditions and joins
+
+            and due to the complexity of our app and data models, we even did this...
+            </aside>
+          </section>
+
+          <section>
+          	<h3>and even this...</h3>
+          	<pre>
+              <code class="ruby" style="font-size: 14px; line-height: 1.5em;">stmt = "SELECT DISTINCT
+  GROUP_CONCAT(DISTINCT UCASE(CAST(LEFT(AES_DECRYPT(p.last_name, 'xxx'), 1) AS CHAR))) AS letters
+FROM channel_groups cg
+INNER JOIN channel_group_people cgp ON cgp.channel_group_id = cg.id
+INNER JOIN people p ON p.id = cgp.person_id
+INNER JOIN channel_membership_attribute_person_values cmapv1 ON p.id = cmapv1.person_id
+INNER JOIN channel_membership_attribute_values cmav1 ON cmav1.id = cmapv1.channel_membership_attribute_value_id
+INNER JOIN channel_membership_attributes cma1 ON cma1.id = cmav1.channel_membership_attribute_id AND cma1.channel_id = cg.channel_id
+INNER JOIN channel_membership_attribute_person_values cmapv2 ON p.id = cmapv2.person_id
+INNER JOIN channel_membership_attribute_values cmav2 ON cmav2.id = cmapv2.channel_membership_attribute_value_id
+INNER JOIN channel_membership_attributes cma2 ON cma2.id = cmav2.channel_membership_attribute_id AND cma2.channel_id = cg.channel_id
+#{if self.show_unregistered_people_in_directory? then
+' left join accounts a on a.person_id = p.id'
+else
+' inner join accounts a on a.person_id = p.id'
+end}
+WHERE cg.id = #{group_id}"
+clause = if (first_attr_id &amp;&amp; second_attr_id)
+  " AND cmav1.id = #{first_attr_id} AND cmav2.id = #{second_attr_id} GROUP BY cmav1.id, cmav2.id"
+elsif (first_attr_id)
+...
+              </code>
+          	</pre>
+            <aside class="notes">
+            This is just chaos and it's jaring to read and inconsistent. We also were duplicating quite a bit of logic
+            and the sql sometimes was more complicated than it needed to be
+            
+            
+            One afternoon as I was retyping a join as I was working
+              on some code, I thought, there has to be a better way. I think it's common to see in a rails code base, 
+              duplicate conditions for joins, etc. 
+              
+              Especially when the condition is part of a join condition to limit access. But this shouldn't be
+              
+              So, I decided that most of the 
+              things we were doing with raw sql, had to be able to be handled in a better way. 
+              Rails was too mature for there not to be a better way to handle all of this.
+
+              So I set off to learn how to better leverage activerecord and understand one of it's building blocks, Arel.
+
+              I'm goign to share with you what I'd discovered and how to duplicate less logic and leverage all that rails
+              has to offer you to make querying your data easier with less duplicate and easier to understand from a high level.
+            </aside>
+          </section>
+
+        </section>
+
+        <section>
+        	<section>
+        		<h2>Limit Query Interface usage to AR Models</h2>
+        		<pre>
+              <code class="ruby">class Beer &lt; ActiveRecord::Base
+  class &lt;&lt; self
+
+    def by_name(name)
+      where(name: name)
+    end
+
+    def by_abv(abv)
+      where(abv: abv)
+    end
+
+    def by_brewery_name(name)
+      joins(:brewery).merge(Brewery.by_name(name))
+    end
+
+  end
+end
+              </code>
+        		</pre>
+            <aside class="notes">
+            Try to keep as much of your query logic inside your AR objects and only provide a meaningful interface
+            to access the scopes.
+
+            This will allow you to ensure logic stays dry and AR will properly prefix your column names with the approriate
+            table.
+
+            This will also help promote reuse and provide a nice name for the condition of sql you are writing.
+            </aside>
+        	</section>
+
+          <section>
+          	<pre>
+              <code class="ruby">Beer.by_abv(5.5..7).by_brewery_name("Founders Brewing Co.")
+              
+# SELECT "beers".* 
+# FROM "beers" INNER JOIN "breweries" 
+#   ON "breweries"."id" = "beers"."brewery_id" 
+# WHERE "breweries"."name" = 'Founders Brewing Co.' 
+#   AND ("beers"."abv" BETWEEN 5.5 AND 7)
+              </code>
+          	</pre>
+          </section>
+        </section>
+
+        <!-- start use merge -->
+        <section>
+        	<section>
+          <h2>Use "#merge" Religiously</h2>
+          <aside class="notes">Merge may be the single most powerful method in active record
+          as it allows you to merge relationships from other models. This is the piece of the puzzle 
+          that will let you not duplicate your logic and keep things dry and neat and tidy.
+          </aside>
+        	</section>
+
+          <section>
+            <p>Prevents hard coding table names</p>
+            <pre>
+              <code class="ruby">Beer.joins(:brewery).where(brewery: { name: "Bell's" })
+
+<span class="fragment fade-in">Beer.joins(:brewery).merge(Brewery.where(name: "Bell's"))</span>
+              </code>
+            </pre>
+          </section>
+
+          <section>
+            <p>Allows you to keep query logic in applicable model</p>
+            <pre>
+              <code class="ruby">class Brewery &lt; ActiveRecord::Base
+  def self.by_name(name)
+    where(name: name)
+  end
+end 
+
+Beer.joins(:brewery).merge(Brewery.by_name("Bell's"))</code>
+            </pre>
+          </section>
+
+          <section>
+            <h2>Makes you complex sql not complex</h2>
+          </section>
+
+          <section>
+            <p>...remember this?</p>
+            <pre>
+              <code class="ruby" style="font-size: 14px; line-height: 1.5em;">stmt = "SELECT DISTINCT
+  GROUP_CONCAT(DISTINCT UCASE(CAST(LEFT(AES_DECRYPT(p.last_name, 'xxx'), 1) AS CHAR))) AS letters
+FROM channel_groups cg
+INNER JOIN channel_group_people cgp ON cgp.channel_group_id = cg.id
+INNER JOIN people p ON p.id = cgp.person_id
+INNER JOIN channel_membership_attribute_person_values cmapv1 ON p.id = cmapv1.person_id
+INNER JOIN channel_membership_attribute_values cmav1 ON cmav1.id = cmapv1.channel_membership_attribute_value_id
+INNER JOIN channel_membership_attributes cma1 ON cma1.id = cmav1.channel_membership_attribute_id AND cma1.channel_id = cg.channel_id
+INNER JOIN channel_membership_attribute_person_values cmapv2 ON p.id = cmapv2.person_id
+INNER JOIN channel_membership_attribute_values cmav2 ON cmav2.id = cmapv2.channel_membership_attribute_value_id
+INNER JOIN channel_membership_attributes cma2 ON cma2.id = cmav2.channel_membership_attribute_id AND cma2.channel_id = cg.channel_id
+#{if self.show_unregistered_people_in_directory? then
+' left join accounts a on a.person_id = p.id'
+else
+' inner join accounts a on a.person_id = p.id'
+end}
+WHERE cg.id = #{group_id}"
+clause = if (first_attr_id &amp;&amp; second_attr_id)
+  " AND cmav1.id = #{first_attr_id} AND cmav2.id = #{second_attr_id} GROUP BY cmav1.id, cmav2.id"
+elsif (first_attr_id)
+...
+              </code>
+            </pre>
+          </section>
+
+          <section>
+          	<p>That query was used to create an address book style initial list.</p>
+              <p>[A, G, H, K, S, X]</p>
+          </section>
+
+          <section>
+          	<p>...it's now this</p>
+          	<pre>
+              <code class="ruby">people = Person.in_channel_group(group_id) \
+  .order(Person.column_last_initial)
+
+if self.show_unregistered_people_in_directory?
+  people = people.registered
+end
+
+attribute_ids = [first_attr_id, second_attr_id].compact
+if !attribute_ids.empty?
+  people = people.with_channel_attribute_ids(attribute_ids)
+end
+
+people.uniq \
+  .pluck(Person.column_last_initial('last_initial').to_sql)</code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>The Person Model has relationships setup properly</p>
+          	<pre>
+              <code class="ruby">class Person < ActiveRecord::Base
+  has_many :channel_group_people, :dependent => :destroy
+  has_many :channel_groups, :through =&gt; :channel_group_people 
+  has_many :channels, :through =&gt; :channel_groups
+  has_many :channel_membership_attribute_person_values
+
+  has_many :channel_membership_attribute_values, :through =&gt; :channel_membership_attribute_person_values
+  has_many :channel_membership_attributes, :through =&gt; :channel_membership_attribute_values
+
+  has_one :account
+    # ...
+end </code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>and scopes created</p>
+          	<pre>
+              <code class="ruby">class Person &lt; ActiveRecord::Base
+  def self.in_channel_group(group_id)
+    joins(:channel_groups).merge(ChannelGroup.by_id(group_id))
+  end
+
+  def self.with_channel_attribute_ids(*value)
+    joins(:channel_membership_attribute_values) \
+      .merge(ChannelMembershipAttributeValue.by_ids(*value)) \
+  end
+
+  def self.registered
+    joins(:account)
+  end
+end </code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>including column reference</p>
+          	<pre>
+              <code class="ruby">class &lt;&lt; self
+  alias_method :_, :arel_table
+
+  def column_last_initial(as = nil)
+    decrypt = decrypted_column(:last_name)
+    left = Arel::Nodes::NamedFunction.new("LEFT", [drecrypte, 1])
+    Arel::Nodes::NamedFunction.new("UCASE", [left], as)
+  end
+
+  protected
+
+  def decrypted_column(column_name, as = nil)
+    Arel::Nodes::NamedFunction.new("AES_DECRYPT", 
+      [_[column_name.to_sym], 'xxx'], 
+      as)
+  end
+end </code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>And here is the sql</p>
+          	<pre>
+              <code class="sql" style="font-size: 14px; line-height: 1.5em;">SELECT DISTINCT UCASE(LEFT(AES_DECRYPT(`people`.`last_name`, x'xxx'), 1)) AS last_initial 
+FROM `people` INNER JOIN `channel_group_people` 
+  ON `channel_group_people`.`person_id` = `people`.`id` 
+INNER JOIN `channel_groups` 
+  ON `channel_groups`.`id` = `channel_group_people`.`channel_group_id` 
+INNER JOIN `accounts` 
+  ON `accounts`.`person_id` = `people`.`id` 
+INNER JOIN `channel_membership_attribute_person_values` 
+  ON `channel_membership_attribute_person_values`.`person_id` = `people`.`id` 
+INNER JOIN `channel_membership_attribute_values` 
+  ON `channel_membership_attribute_values`.`id` = `channel_membership_attribute_person_values`.`channel_membership_attribute_value_id`
+WHERE `channel_groups`.`id` = 21 
+  AND `channel_membership_attribute_values`.`id` = 23 
+ORDER BY UCASE(LEFT(AES_DECRYPT(`people`.`last_name`, x'xxx'), 1))</code>
+          	</pre>
+          </section>
+
+        </section>
+        <!-- end use merge -->
+
+        <!-- start don't duplicate logic -->
+        <section>
+
+          <section>
+            <h2>Don't Duplicate Logic/Conditions</h2>
+          	<pre>
+              <code class="ruby">Post.includes(:user).where(users: { is_active: true })
+
+<span class="fragment fade-in">Post.includes(:user).where(users: { is_active: true }) \
+  .where("user.email IS NOT NULL")</span> 
+
+<span class="fragment fade-in">Post.includes(:user).where(users: { is_active: true }) \
+  .where("users.email IS NOT NULL") \
+  .where(users: { banned: false })</span> 
+
+<span class="fragment fade-in">Post.includes(:user).merge(User.active)</span>
+              </code>
+          	</pre>
+          </section>
+
+        	<section>
+        		<h2>Don't Duplicate Logic</h2>
+        		<pre>
+              <code class="ruby">class Beer &lt; ActiveRecord::Base
+  def self.with_no_brewery
+    where(brewery_id: nil)
+  end
+end
+
+class Brewery &lt; ActiveRecord::Base
+  def self.with_no_beers
+    includes(:beers).merge(Beer.with_no_brewery)
+  end
+end
+
+              </code>
+        		</pre>
+        	</section>
+
+          <section>
+          	<pre>
+              <code class="ruby">Brewery.with_no_beers
+
+# SELECT "breweries"."id" AS t0_r0, ...
+# FROM "breweries" LEFT OUTER JOIN "beers" 
+#  ON "beers"."brewery_id" = "breweries"."id" 
+# WHERE "beers"."brewery_id" IS NULL
+            </code>
+          	</pre>
+          </section>
+
+        </section>
+        <!-- end don't duplicate logic -->
+
+        <!--  relationships -->
+        <section>
+        	<section>
+        		<h2>Setup and use Relationships</h2>
+            <aside class="notes">Create all appropriate relationships in your rails models
+            As of rails 3.1, you can use deep join relationships using through relationships
+            which will allow you to deep join your models to other tables.
+            </aside>
+        	</section>
+
+          <section>
+          	<p>All Relationships</p>
+          	<pre>
+              <code class="ruby">class BeerDrinker &lt; ActiveRecord::Base
+  has_and_belongs_to_many :beers <span class="fragment fade-in"># many to many</span>
+  has_many :breweries, through: :beers <span class="fragment fade-in"># has many through</span>
+end
+
+class Beer &lt; ActiveRecord::Base
+  belongs_to :brewery <span class="fragment fade-in"># join from BeerDrinker through</span>
+  has_and_belongs_to_many :beer_drinkers
+end</code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>Inner Joins Through Relationships</p>
+          	<pre>
+              <code class="ruby">BeerDrinker.joins(:breweries) \
+  .merge(Brewery.by_name("Bell's"))
+
+# SELECT "beer_drinkers".* 
+# FROM "beer_drinkers" INNER JOIN "beer_drinkers_beers" 
+#   ON "beer_drinkers_beers"."beer_drinker_id" 
+#       = "beer_drinkers"."id" 
+# INNER JOIN "beers" ON "beers"."id" 
+#       = "beer_drinkers_beers"."beer_id" 
+# INNER JOIN "breweries" ON "breweries"."id" 
+#       = "beers"."brewery_id" 
+# WHERE "breweries"."name" = 'Bell''s' </code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>Outer Joins Through Relationship</p>
+          	<pre>
+              <code class="ruby">BeerDrinker.includes(:beers) \
+  .merge(Beer.where(id: nil))
+
+# SELECT "beer_drinkers"."id" AS t0_r0, "beers"."id" AS t1_r0 
+# FROM "beer_drinkers" LEFT OUTER JOIN "beer_drinkers_beers" 
+#   ON "beer_drinkers_beers"."beer_drinker_id" = "beer_drinkers"."id" 
+# LEFT OUTER JOIN "beers" 
+#   ON "beers"."id" = "beer_drinkers_beers"."beer_id" 
+# WHERE "beers"."id" IS NULL
+              </code>
+          	</pre>
+          </section>
+
+        </section>
+        <!-- end relationships -->
+
+        <!-- when things get complex -->
+
+        <section>
+
+          <section>
+            <h2>When things get complex...</h2>
+            <h2 class="fragment fade-in">...use Arel</h2>
+          </section>
+
+          <section>
+            <h2>What is Arel</h2>
+            <ul>
+              <li>Arel is a SQL AST manager for Ruby</li>
+              <li>Simplifies the generation of complex SQL queries</li>
+              <li>Adapts to various RDBMS systems</li>
+            </ul>
+            <p><small>* <a href="https://github.com/rails/arel">https://github.com/rails/arel</a></small></p>
+            <aside class="notes">
+            ARel was created by Nick Kallen of twitter and is the basic building blocks underneath the ActiveRecord::Relation query interface
+
+            http://erniemiller.org/2010/05/11/activerecord-relation-vs-arel/
+            
+            1.9.3p194 :011 > (s.methods - Object.instance_methods).sort
+             => [:as, :ast, :compile_delete, :compile_insert, :compile_update, :constraints, :create_and, :create_false, :create_insert, :create_join, :create_on, :create_string_join, :create_table_alias, :create_true, :delete, :distinct, :engine, :except, :exists, :from, :froms, :group, :grouping, :having, :insert, :intersect, :join, :join_sources, :join_sql, :joins, :limit, :limit=, :lock, :locked, :lower, :minus, :offset, :offset=, :on, :order, :order_clauses, :orders, :project, :projections=, :skip, :source, :take, :taken, :to_a, :to_dot, :to_sql, :union, :update, :visitor, :where, :where_clauses, :where_sql, :wheres, :with] 
+            </aside>
+          </section>
+
+        </section>
+        <!-- end things get complex -->
+
+        <section>
+        	<section>
+        		<h2>Accessing Arel From Models</h2>
+        	</section>
+
+          <section>
+          	<p>Arel::Table</p>
+          	<pre>
+              <code class="ruby"><span class="fragment fade-in">Model.arel_table</span>
+<span class="fragment fade-in">Model.scoped.table</span> </code>
+          	</pre>
+          </section>
+
+        	<section>
+        		<p>Accessing Arel::Table from model</p>
+        		<pre>
+              <code class="ruby">&gt; Beer.arel_table.class
+ =&gt; Arel::Table
+
+<span class="fragment fade-in">&gt; Beer.arel_table[:name].class
+ =&gt; Arel::Attributes::Attribute</span>
+
+<span class="fragment fade-in">&gt; Beer.where(Beer.arel_table[:name].matches("%ale%"))
+  # SELECT "beers".* FROM "beers" 
+  # WHERE ("beers"."name" LIKE '%ale%')</span> </code>
+        		</pre>
+        	</section>
+
+          <section>
+          	<p>Arel::SelectManager</p>
+          	<pre>
+              <code class="ruby"><span class="fragment fade-in">Model.arel_table.select_manager</span>
+<span class="fragment fade-in">Model.scoped.arel</span></code>
+          	</pre>
+          </section>
+        </section>
+
+        <section>
+          <section>
+          	<h2>Using Arel for conditions</h2>
+          </section>
+
+        	<section>
+        		<p>Conditions</p>
+            <ul>
+            	<li>eq - (a = 1)</li>
+            	<li>in - (a in [1, 2])</li>
+            	<li>matches - (a like "%one%")</li>
+            	<li>lt - (a &lt; 1)</li>
+              <li>gt - (a &gt; 1)</li>
+              <li>gteq - (a &gt;= 1)</li>
+              <li>lteq - (a &lt;= 1)</li>
+            </ul>
+        	</section>
+
+        	<section>
+        		<p>Conditions</p>
+            <ul>
+            	<li>condition_all - eq_all - (a = 1 and a = 2)</li>
+            	<li>condition_any - eq_any - (a = 1 or a = 2)</li>
+            	<li>not_condition - not_eq - (a != 1)</li>
+            	<li>not_condition_any - not_eq_any - (a != 1 or a != 2)</li>
+            	<li>not_condition_all - not_eq_all - (a != 1 and a != 2)</li>
+            </ul>
+        	</section>
+
+        </section>
+
+        <section>
+        	<section>
+        		<h2>Using Arel for Conditionals</h2>
+        	</section>
+
+          <section>
+          	<p>Starts or Ends with</p>
+          	<pre>
+              <code class="ruby">def starts_or_ends_with(start, ending=nil)
+  beer = Beer.arel_table
+  ending = ending || start
+  where(beer[:name].matches_any(["%#{ending}", "#{start}%"]))
+end
+              
+Beer.starts_or_ends_with("ale")
+
+# SELECT "beers".* 
+# FROM "beers" 
+# WHERE (("beers"."name" LIKE '%ale' 
+#    OR "beers"."name" LIKE 'ale%'))</code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>Or Conditionals</p>
+          	<pre>
+              <code class="ruby">def misclassified_ipas
+  beer = Beer.arel_table
+  style = Style.arel_table
+
+  joins(:style).where(
+    beer[:abv].lt(7.5).and(style[:name].eq("Imperial IPA")) \
+    .or(beer[:abv].gt(7.4).and(style[:name].eq("IPA")))
+  )
+end
+
+# SELECT "beers".* FROM "beers" 
+# INNER JOIN "styles" ON "styles"."id" = "beers"."style_id" 
+# WHERE (("beers"."abv" &lt; 7.5 AND "styles"."name" = 'Imperial IPA'
+#    OR "beers"."abv" &gt; 7.4 AND "styles"."name" = 'IPA')) </code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>Or Conditionals</p>
+          	<pre>
+              <code class="ruby">def misclassified_imperials_ipas_and_stouts
+  beer = Beer.arel_table
+  style = Style.arel_table
+
+  joins(:style).where(
+    style[:name].eq("Imperial IPA") \
+    .or(style[:name].eq("Imperial Stout")) \
+      .and(beer[:abv].lt(7.5))
+  )
+end
+
+# SELECT "beers".* FROM "beers" 
+# INNER JOIN "styles" ON "styles"."id" = "beers"."style_id"
+# WHERE (("styles"."name" = 'Imperial IPA' 
+#    OR "styles"."name" = 'Imperial Stout') 
+#   AND "beers"."abv" &lt; 7.5)
+</code>
+          	</pre>
+          </section>
+
+        </section>
+
+        <section>
+          <section>
+          	<h2>Complex Joins with Arel</h2>
+          </section>
+        	<section>
+        		<p>Creating join with Arel</p>
+        		<pre>
+        			<code class="ruby">beer = Beer.arel_table
+style = Style.arel_table
+
+join_condition = beer.create_on(beer[:style_id].eq(style[:id]))
+inner_join = beer.create_join(style, join_condition)
+outer_join = beer.create_join(style, join_condition, Arel::Nodes::OuterJoin)
+
+Beer.joins(inner_join)
+# SELECT "beers".* FROM "beers" 
+# INNER JOIN "styles" ON "beers"."style_id" = "styles"."id"
+
+Beer.joins(outer_join)
+# SELECT "beers".* FROM "beers" 
+# LEFT OUTER JOIN "styles" 
+#   ON "beers"."style_id" = "styles"."id"</code>
+        		</pre>
+        	</section>
+
+        </section>
+
+        <section>
+        	<section>
+        		<h2>Named Functions</h2>
+            <p>Arel::Nodes::NamedFunction.new(name, expr, aliaz = nil)</p>
+        	</section>
+
+          <section>
+          	<p>Named Function</p>
+          	<pre>
+              <code class="ruby">person = Person.arel_table
+decrypt = Arel::Nodes::NamedFunction.new("AES_DECRYPT", 
+  [person[:name], 'xxx'])
+
+decrypt.to_sql
+
+# AES_DECRYPT(`people`.`name`, 'xxx') </code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>Combining Named Functions</p>
+          	<pre>
+              <code class="ruby">person = Person.arel_table
+
+decrypt = Arel::Nodes::NamedFunction.new("AES_DECRYPT", 
+  [person[:name], 'xxx'])
+
+left = Arel::Nodes::NamedFunction.new("LEFT", [decrypt, 1])
+
+ucase = Arel::Nodes::NamedFunction.new("UCASE", 
+  [left], 'last_initial')
+
+ucase.to_sql
+
+# UCASE(LEFT(AES_DECRYPT(`people`.`name`, 'xxx'), 1)) AS last_initial
+              </code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>Use the named function</p>
+          	<pre>
+              <code class="ruby">Person.order(ucase).to_sql
+# SELECT `people`.* 
+# FROM `people`  
+# ORDER BY UCASE(LEFT(AES_DECRYPT(`people`.`name`, 'xxx'), 1))
+
+<span class="fragment fade-in">Person.pluck(ucase.to_sql).to_sql
+# SELECT UCASE(LEFT(AES_DECRYPT(`people`.`name`, 'xxx'), 1)) 
+# AS last_initial 
+# FROM `people`
+</span>
+              </code>
+          	</pre>
+          </section>
+        </section>
+
+        <section>
+        	<section>
+        		<h2>Unions</h2>
+        	</section>
+
+          <section>
+          	<p>Creating a union</p>
+          	<pre>
+              <code class="ruby">beer = Beer.arel_table
+
+union = Beer.where(name: "Oberon") \
+  .union(Beer.where(name: "Two Hearted")) 
+
+Beer.from(beer.create_table_alias(union, :beers)).all
+
+# SELECT "beers".* 
+# FROM ( SELECT "beers".* 
+#   FROM "beers" 
+#   WHERE "beers"."name" = 'Oberon' 
+# UNION 
+# SELECT "beers".* 
+#   FROM "beers" 
+# WHERE "beers"."name" = 'Two Hearted' ) "beers"
+              </code>
+          	</pre>
+          </section>
+        </section>
+
+        <section>
+        	<section>
+        		<h2>User arel for Order by</h2>
+        	</section>
+
+          <section>
+          	<p>Just using normal AR style</p>
+          	<pre>
+              <code class="ruby">Beer.order(:name)
+# SELECT "beers".* FROM "beers" ORDER BY name
+
+<span class="fragment fade-in">Beer.joins(:style).order(:name)
+# SELECT "beers".* FROM "beers" 
+# INNER JOIN "styles" ON "styles"."id" = "beers"."style_id" 
+# ORDER BY name</span>
+
+<span class="fragment fade-in">beer = Beer.arel_table
+Beer.order(beer[:name])
+# SELECT "beers".* FROM "beers" ORDER BY "beers"."name"
+</span>
+
+<span class="fragment fade-in">Beer.order(beer[:name].desc)
+# SELECT "beers".* FROM "beers" ORDER BY "beers"."name" DESC
+</span> </code>
+          	</pre>
+          </section>
+
+        </section>
+
+        <section>
+        	<section>
+        		<h2>Visualizing Arel AST</h2>
+        	</section>
+
+          <section>
+            <ul>
+            	<li>Install Graphviz</li>
+            	<li>Install 'ruby-graphviz' gem or add it to your gemfile</li>
+            </ul>
+          	<pre>
+              <code class="ruby">require 'graphviz'
+query = Beer.by_abv(5.5..7).by_brewery_name("Bell's") \
+  .order("created_at")
+graph = GraphViz.parse_string(query.to_dot)
+graph.output(:png =&gt; "query.png")</code>
+          	</pre>
+          </section>
+
+          <section>
+          	<img src="images/arel_ast_graph.png" alt="Arel Graph" />
+          </section>
+        </section>
+
+        <section>
+        	<section>
+        		<h2>New in Rails 4</h2>
+        	</section>
+
+          <section>
+          	<p>Null Object Pattern</p>
+          	<pre>
+          		<code class="ruby">Beer.none.where(name: "Pale ale")</code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>All scopes require callable object</p>
+          	<pre>
+              <code class="ruby">class Beer &lt; ActiveRecord::Base
+  scope :deleted, where(deleted: true)
+
+  <span class="fragment fade-in">scope :deleted, lambda { where(deleted: true) }</span>
+end</code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>#update_columns to compliment #update_column</p>
+          	<pre>
+              <code class="ruby">Beer.first.update_column(:name, "New Name")
+
+Beer.first.update_columns(name: "New Name", abv: 5.5)</code>
+          	</pre>
+            <p><small>* unsafe, bypasses validations and callbacks</small></p>
+          </section>
+
+          <section>
+          	<p>Finder methods are deprecated</p>
+          	<pre>
+              <code class="ruby">Beer.find_all_by_name("Oberon")
+              
+Beer.where(name: "Oberon")</code>
+          	</pre>
+          </section>
+
+          <section>
+          	<p>#pluck takes multiple columns</p>
+          	<pre>
+              <code class="ruby">&gt; Beer.pluck(:id, :name)
+ =&gt; [[1, "Hopslam"], [2, "Oberon"], [3, "Two Hearted"]]</code>
+          	</pre>
+          </section>
+        </section>
+
+        <section>
+        <p>Awesome resources</p>
+<p>        <a href="http://benhoskin.gs/2012/07/04/arel-merge-a-hidden-gem">http://benhoskin.gs/2012/07/04/arel-merge-a-hidden-gem</a> </p>
+<p>        <a href="https://github.com/rails/arel">https://github.com/rails/arel</a></p>
+<p>        <a href="http://erniemiller.org/">http://erniemiller.org/</a></p>
+        </section>
+
+
+			</div>
+
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.min.js"></script>
+
+		<script>
+
+			// Full list of configuration options available here:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+				transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/none
+
+				// Optional libraries used to extend on reveal.js
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/showdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+					{ src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } },
+          { src: '/socket.io/socket.io.js', async: true },
+          { src: 'plugin/notes-server/client.js', async: true }
+					// { src: 'plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>
