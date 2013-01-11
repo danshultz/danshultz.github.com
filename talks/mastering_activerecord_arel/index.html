@@ -4,7 +4,7 @@
 	<head>
 		<meta charset="utf-8">
 
-		<title>Master ActiveRecord and Arel</title>
+		<title>Mastering ActiveRecord and Arel</title>
 
 		<meta name="author" content="Dan Shultz">
 
@@ -38,7 +38,7 @@
         </section>
 
 				<section>
-          <h1>Master ActiveRecord and ARel</h1>
+          <h1>Mastering ActiveRecord and ARel</h1>
 				</section>
 
         <section>
@@ -138,36 +138,34 @@ Beer.find_all_by_abv(7.0) </code>
           <section>
           	<h3>and this...</h3>
           	<pre>
-              <code class="ruby">
-    Discussion.find(id).comments.joins(:conversation) \
-      .where("conversations.person_id" =&gt; person_id)
-              </code>
+              <code class="ruby">Discussion.find(id).comments.joins(:conversation)
+  .where("conversations.person_id" =&gt; person_id) </code>
           	</pre>
           </section>
 
           <section>
           	<h3>and sometimes in our controllers...</h3>
           	<pre>
-              <code class="ruby">
-    Discussion.where("owner" =&gt; person_id, :deleted =&gt; false, 
-      "created_on &gt; ?" =&gt; 2.weeks.ago)
-              </code>
+              <code class="ruby">Discussion.where("owner" =&gt; person_id, 
+  :deleted =&gt; false, 
+  "created_on &gt; ?" =&gt; 2.weeks.ago) </code>
           	</pre>
           </section>
 
           <section>
           	<h3>Also this...</h3>
           	<pre>
-              <code class="ruby">
+              <code class="ruby" style="font-size: 12px; line-height: 1.5em">
 joins = "INNER JOIN channel_groups cg ON cg.id = discussions.channel_group_id"
 joins = "#{joins} INNER JOIN channel_group_people cgp ON cgp.channel_group_id = cg.id" unless as_admin
 
-conditions = "cg.channel_id = #{channel.id} AND discussions.widget_id = #{for_widget_id ? for_widget_id : 'NULL'}"
+conditions = "cg.channel_id = #{channel.id} 
+  AND discussions.widget_id = #{for_widget_id ? for_widget_id : 'NULL'}"
 conditions = "#{conditions} AND cgp.person_id = #{person.id}" unless as_admin
 
 order = "discussions.updated_at DESC"
 
-find(:all, :joins => joins, :conditions => conditions, :order => order, :limit => limit)
+find(:all, :joins =&gt; joins, :conditions =&gt; conditions, :order =&gt; order, :limit =&gt; limit)
               </code>
           	</pre>
             <aside class="notes">
@@ -227,7 +225,16 @@ elsif (first_attr_id)
           </section>
 
           <section>
-          	<p>That query was used to create an address book style initial list.</p>
+            <h3>Stop the Insanity</h3>
+            <img src="images/ahhhhh.jpg" alt="" />
+          </section>
+
+          <section>
+            <img src="images/better-way.gif" alt="" />
+          </section>
+
+          <section>
+          	<p>That last query was used to create an address book style initial list.</p>
               <p>[A, G, H, K, S, X]</p>
           </section>
 
@@ -257,12 +264,16 @@ people \
           	<pre>
               <code class="ruby">class Person < ActiveRecord::Base
   has_many :channel_group_people, :dependent => :destroy
-  has_many :channel_groups, :through =&gt; :channel_group_people 
-  has_many :channels, :through =&gt; :channel_groups
+  has_many :channel_groups, 
+    :through =&gt; :channel_group_people 
+  has_many :channels, 
+    :through =&gt; :channel_groups
   has_many :channel_membership_attribute_person_values
 
-  has_many :channel_membership_attribute_values, :through =&gt; :channel_membership_attribute_person_values
-  has_many :channel_membership_attributes, :through =&gt; :channel_membership_attribute_values
+  has_many :channel_membership_attribute_values, 
+    :through =&gt; :channel_membership_attribute_person_values
+  has_many :channel_membership_attributes, 
+    :through =&gt; :channel_membership_attribute_values
 
   has_one :account
     # ...
@@ -275,12 +286,13 @@ end </code>
           	<pre>
               <code class="ruby">class Person &lt; ActiveRecord::Base
   def self.in_channel_group(group_id)
-    joins(:channel_groups).merge(ChannelGroup.by_id(group_id))
+    joins(:channel_groups) \
+      .merge(ChannelGroup.by_id(group_id))
   end
 
   def self.with_channel_attribute_ids(*value)
     joins(:channel_membership_attribute_values) \
-      .merge(ChannelMembershipAttributeValue.by_ids(*value)) \
+      .merge(ChannelMembershipAttributeValue.by_ids(*value))
   end
 
   def self.registered
@@ -297,14 +309,14 @@ end </code>
   alias_method :_, :arel_table
 
   def column_last_initial(as = nil)
-    decrypt = decrypted_column(:last_name)
-    left = Arel::Nodes::NamedFunction.new("LEFT", [drecrypte, 1])
+    decrypt = decrypted_function(:last_name)
+    left = Arel::Nodes::NamedFunction.new("LEFT", 
+      [decrypt, 1])
     Arel::Nodes::NamedFunction.new("UCASE", [left], as)
   end
 
   protected
-
-  def decrypted_column(column_name, as = nil)
+  def decrypted_function(column_name, as = nil)
     Arel::Nodes::NamedFunction.new("AES_DECRYPT", 
       [_[column_name.to_sym], 'xxx'], 
       as)
@@ -333,6 +345,16 @@ ORDER BY UCASE(LEFT(AES_DECRYPT(`people`.`last_name`, x'xxx'), 1))</code>
           	</pre>
           </section>
 
+        </section>
+
+        <section>
+            <pre>
+              <code class="ruby">class Beer &lt; ActiveRecord::Base
+  belongs_to :brewery
+  belongs_to :style
+  has_and_belongs_to_many :beer_drinkers
+end  </code>
+            </pre>
 
         </section>
 
@@ -364,7 +386,7 @@ ORDER BY UCASE(LEFT(AES_DECRYPT(`people`.`last_name`, x'xxx'), 1))</code>
           </section>
 
           <section>
-            <p>Allows you to keep query logic in applicable model</p>
+            <p>Allows you to not duplicate conditions across models</p>
             <pre>
               <code class="ruby">class Brewery &lt; ActiveRecord::Base
   has_many :beers
@@ -439,9 +461,10 @@ end</code>
               <code class="ruby">BeerDrinker.includes(:beers) \
   .merge(Beer.where(id: nil))
 
-# SELECT "beer_drinkers"."id" AS t0_r0, "beers"."id" AS t1_r0 
-# FROM "beer_drinkers" LEFT OUTER JOIN "beer_drinkers_beers" 
-#   ON "beer_drinkers_beers"."beer_drinker_id" = "beer_drinkers"."id" 
+# SELECT "beer_drinkers"."id" AS t0_r0, "beers"."id" AS ...
+# FROM "beer_drinkers" LEFT OUTER JOIN "beer_drinkers_beers"
+#   ON "beer_drinkers_beers"."beer_drinker_id" 
+#     = "beer_drinkers"."id" 
 # LEFT OUTER JOIN "beers" 
 #   ON "beers"."id" = "beer_drinkers_beers"."beer_id" 
 # WHERE "beers"."id" IS NULL
@@ -682,7 +705,8 @@ query.all
               <code class="ruby">def starts_or_ends_with(start, ending=nil)
   beer = Beer.arel_table
   ending = ending || start
-  where(beer[:name].matches_any(["%#{ending}", "#{start}%"]))
+  where(beer[:name] \
+    .matches_any(["%#{ending}", "#{start}%"]))
 end
               
 Beer.starts_or_ends_with("ale")
@@ -702,7 +726,7 @@ Beer.starts_or_ends_with("ale")
   style = Style.arel_table
 
   joins(:style).where(
-    beer[:abv].lt(7.5).and(style[:name].eq("Imperial IPA")) \
+    beer[:abv].lt(7.5).and(style[:name].eq("Imperial IPA"))
     .or(beer[:abv].gt(7.4).and(style[:name].eq("IPA")))
   )
 end
@@ -737,6 +761,23 @@ end
           	</pre>
           </section>
 
+          <section>
+          	<p>Not Conditions</p>
+          	<pre>
+              <code class="ruby">class Style &lt; ActiveRecord::Base
+  def not_names(*names)
+    names = names.flatten
+    where(Style.arel_table[:name].not_in(names))
+  end
+end 
+
+<span class="fragment fade-in">Style.not_names("Stout", "IPA")
+
+# SELECT "styles".* FROM "styles" 
+# WHERE ("styles"."name" NOT IN ('Stout', 'IPA')) </span> </code>
+          	</pre>
+          </section>
+
         </section>
 
         <!-- Multiple Joins -->
@@ -751,8 +792,8 @@ end
         			<code class="ruby">beer = Beer.arel_table
 style = Style.arel_table
 
-join_condition = beer.create_on(beer[:style_id].eq(style[:id]))
-inner_join = beer.create_join(style, join_condition)
+join_on = beer.create_on(beer[:style_id].eq(style[:id]))
+inner_join = beer.create_join(style, join_on)
 
 Beer.joins(inner_join)
 # SELECT "beers".* FROM "beers" 
@@ -766,8 +807,9 @@ Beer.joins(inner_join)
         			<code class="ruby">beer = Beer.arel_table
 style = Style.arel_table
 
-join_condition = beer.create_on(beer[:style_id].eq(style[:id]))
-outer_join = beer.create_join(style, join_condition, Arel::Nodes::OuterJoin)
+join_on = beer.create_on(beer[:style_id].eq(style[:id]))
+outer_join = beer.create_join(style, join_on, 
+  Arel::Nodes::OuterJoin)
 
 Beer.joins(outer_join)
 # SELECT "beers".* FROM "beers" 
@@ -789,10 +831,10 @@ condition = beer.create_on \
 first_join = beer.create_join(beer_beer_drinker, condition)
 
 
-condition = beer_drinker.create_on \
+condition = beer.create_on \
   beer_beer_drinker[:beer_drinker_id].eq(beer_drinker[:id])
 
-second_join = first_join.create_join(beer_drinker, condition)</code>
+second_join = beer.create_join(beer_drinker, condition)</code>
           	</pre>
           </section>
 
@@ -847,7 +889,8 @@ Beer.order(beer[:name])
         <section>
         	<section>
         		<h2>Named Functions</h2>
-            <p>Arel::Nodes::NamedFunction.new(name, expr, aliaz = nil)</p>
+            <p>Arel::Nodes::NamedFunction</p>
+            <p>#new(name, expr, aliaz = nil)</p>
         	</section>
 
           <section>
@@ -878,7 +921,8 @@ ucase = Arel::Nodes::NamedFunction.new("UCASE",
 
 ucase.to_sql
 
-# UCASE(LEFT(AES_DECRYPT(`people`.`name`, 'xxx'), 1)) AS last_initial
+# UCASE(LEFT(AES_DECRYPT(`people`.`name`, 'xxx'), 1)) 
+#   AS last_initial
               </code>
           	</pre>
           </section>
@@ -892,7 +936,7 @@ ucase.to_sql
 # ORDER BY UCASE(LEFT(AES_DECRYPT(`people`.`name`, 'xxx'), 1))
 
 <span class="fragment fade-in">Person.pluck(ucase.to_sql).to_sql
-# SELECT UCASE(LEFT(AES_DECRYPT(`people`.`name`, 'xxx'), 1)) 
+# SELECT UCASE(LEFT(AES_DECRYPT(`people`.`name`, 'xxx'), 1))
 # AS last_initial 
 # FROM `people`
 </span>
@@ -967,6 +1011,13 @@ graph.output(:png =&gt; "query.png")</code>
           </section>
 
           <section>
+          	<p>Not Operator</p>
+          	<pre>
+          		<code class="ruby">Beer.not.where(name: "Pale ale")</code>
+          	</pre>
+          </section>
+
+          <section>
           	<p>All scopes require callable object</p>
           	<pre>
               <code class="ruby">class Beer &lt; ActiveRecord::Base
@@ -1007,9 +1058,11 @@ Beer.where(name: "Oberon")</code>
 
         <section>
         <p>Awesome resources</p>
-<p>        <a href="http://benhoskin.gs/2012/07/04/arel-merge-a-hidden-gem">http://benhoskin.gs/2012/07/04/arel-merge-a-hidden-gem</a> </p>
 <p>        <a href="https://github.com/rails/arel">https://github.com/rails/arel</a></p>
+<p>        <a href="http://benhoskin.gs/2012/07/04/arel-merge-a-hidden-gem">http://benhoskin.gs/2012/07/04/arel-merge-a-hidden-gem</a> </p>
 <p>        <a href="http://erniemiller.org/">http://erniemiller.org/</a></p>
+<p>        <a href="http://danshultz.github.com/talks/mastering_activerecord_arel/">Slides for this Talk</a></p>
+<p>        <a href="https://github.com/danshultz/mastering_active_record_sample_code">Code Used in Samples</a></p>
         </section>
 
 
